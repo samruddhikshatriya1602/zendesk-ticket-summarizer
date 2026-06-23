@@ -1,0 +1,22 @@
+# Dependencies (never commit these — huge and reinstallable)
+node_modules/
+
+# Secrets (NEVER commit — contains API tokens)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# Mac / editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Test coverage reports
+coverage/
