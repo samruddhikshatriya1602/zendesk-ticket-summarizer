@@ -6,7 +6,7 @@ import summaryRouter from './routes/summary';
 
 dotenv.config();
 
-const app = express();
+const app = express();      // Express app
 const PORT = Number(process.env.PORT) || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 

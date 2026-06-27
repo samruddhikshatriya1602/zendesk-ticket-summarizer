@@ -1,3 +1,4 @@
+// Configures Jest (test runner) for the backend.
 /** @type {import('jest').Config} */
 module.exports = {
     preset: 'ts-jest',
