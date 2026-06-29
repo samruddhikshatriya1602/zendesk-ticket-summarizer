@@ -202,7 +202,7 @@ function buildAuthHeader(): string {
   }
 
 
-  // 
+  // FETCH TICKET COMMENTS SERVICE
   export async function getTicketComments(id: number): Promise<TicketComment[]> {
     const data = await zendeskFetch(`/tickets/${id}/comments.json`);
     const comments = data.comments as Record<string, unknown>[];

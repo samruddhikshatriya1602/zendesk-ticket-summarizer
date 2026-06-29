@@ -42,3 +42,25 @@ export interface Ticket {
       message: string;
     };
   }
+
+// AI-generated summary (exercise spec — 5 fields)
+export interface TicketSummary {
+  mainIssue: string;
+  priorityAssessment: string;
+  priorityReasoning: string;
+  currentStatus: string;
+  recommendedNextSteps: string[];
+}
+
+// POST /api/tickets/:id/summary — success response
+export interface SummaryResponse {
+  ticketId: number;
+  cached: boolean;
+  generatedAt: string;
+  summary: TicketSummary;
+}
+
+// POST body (optional)
+export interface SummaryRequestBody {
+  forceRefresh?: boolean;
+}
