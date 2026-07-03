@@ -12,6 +12,7 @@
 import {
     listTickets,
     getTicketById,
+    fetchAllTicketSnapshots,
     ZendeskError,
   } from '../services/zendeskService';
 
@@ -157,6 +158,124 @@ describe('zendeskService', () => {
       expect.stringContaining('/tickets/42.json'),
       expect.any(Object)
     );
+  });
+
+
+  describe('fetchAllTicketSnapshots', () => {
+    function makeZendeskTicket(id: number) {
+      return {
+        id,
+        subject: `Ticket ${id}`,
+        description: 'Should not appear in snapshot',
+        status: 'open',
+        priority: 'high',
+        created_at: '2026-06-20T10:15:30Z',
+        updated_at: '2026-06-24T14:22:01Z',
+        requester_id: 999999,
+      };
+    }
+
+    it('returns lightweight snapshots with only id, subject, status, priority', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse({
+          tickets: [makeZendeskTicket(1)],
+          meta: { has_more: false },
+        })
+      );
+
+      const result = await fetchAllTicketSnapshots();
+
+      expect(result).toEqual([
+        {
+          id: 1,
+          subject: 'Ticket 1',
+          status: 'open',
+          priority: 'high',
+        },
+      ]);
+      expect(result[0]).not.toHaveProperty('description');
+      expect(result[0]).not.toHaveProperty('created_at');
+    });
+
+    it('paginates with cursor until has_more is false', async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          mockJsonResponse({
+            tickets: [makeZendeskTicket(1), makeZendeskTicket(2)],
+            meta: { has_more: true, after_cursor: 'cursor-page-2' },
+          })
+        )
+        .mockResolvedValueOnce(
+          mockJsonResponse({
+            tickets: [makeZendeskTicket(3)],
+            meta: { has_more: false },
+          })
+        );
+
+      const result = await fetchAllTicketSnapshots();
+
+      expect(result).toHaveLength(3);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch.mock.calls[1][0]).toContain('page%5Bafter%5D=cursor-page-2');
+    });
+
+    it('stops at WORK_INSIGHTS_MAX_TICKETS cap', async () => {
+      process.env.WORK_INSIGHTS_MAX_TICKETS = '3';
+
+      mockFetch
+        .mockResolvedValueOnce(
+          mockJsonResponse({
+            tickets: [makeZendeskTicket(1), makeZendeskTicket(2)],
+            meta: { has_more: true, after_cursor: 'cursor-page-2' },
+          })
+        )
+        .mockResolvedValueOnce(
+          mockJsonResponse({
+            tickets: [makeZendeskTicket(3), makeZendeskTicket(4)],
+            meta: { has_more: true, after_cursor: 'cursor-page-3' },
+          })
+        );
+
+      const result = await fetchAllTicketSnapshots();
+
+      expect(result).toHaveLength(3);
+      expect(result.map((ticket) => ticket.id)).toEqual([1, 2, 3]);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns an empty array when Zendesk has no tickets', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse({
+          tickets: [],
+          meta: { has_more: false },
+        })
+      );
+
+      const result = await fetchAllTicketSnapshots();
+
+      expect(result).toEqual([]);
+    });
+
+    it('stops paginating when has_more is true but after_cursor is missing', async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          mockJsonResponse({
+            tickets: [makeZendeskTicket(1), makeZendeskTicket(2)],
+            meta: { has_more: true },
+          })
+        )
+        .mockResolvedValueOnce(
+          mockJsonResponse({
+            tickets: [makeZendeskTicket(1), makeZendeskTicket(2)],
+            meta: { has_more: true },
+          })
+        );
+
+      const result = await fetchAllTicketSnapshots();
+
+      expect(result).toHaveLength(2);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
   });
 
 });

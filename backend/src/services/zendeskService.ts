@@ -2,6 +2,7 @@
 import {
   Ticket,
   TicketComment,
+  TicketSnapshot,
   TicketsResponse,
 } from '../types';
 
@@ -74,7 +75,7 @@ function buildAuthHeader(): string {
       (raw.body as string) ||
       (raw.plain_body as string) ||
       '';
-  
+
     return {
       id: raw.id as number,
       author_id: raw.author_id as number,
@@ -84,6 +85,32 @@ function buildAuthHeader(): string {
     };
   }
 
+  // mapZendeskTicketSnapshot(raw) — lightweight fields for work insights only
+  function mapZendeskTicketSnapshot(raw: Record<string, unknown>): TicketSnapshot {
+    return {
+      id: raw.id as number,
+      subject: (raw.subject as string) ?? '',
+      status: (raw.status as string) ?? 'unknown',
+      priority: (raw.priority as string | null | undefined) ?? null,
+    };
+  }
+
+  const WORK_INSIGHTS_ZENDESK_PAGE_SIZE = 100;
+  const DEFAULT_WORK_INSIGHTS_MAX_TICKETS = 500;
+
+  function getWorkInsightsMaxTickets(): number {
+    const raw = process.env.WORK_INSIGHTS_MAX_TICKETS;
+    if (!raw || raw.trim() === '') {
+      return DEFAULT_WORK_INSIGHTS_MAX_TICKETS;
+    }
+
+    const max = Number(raw);
+    if (!Number.isFinite(max) || max <= 0) {
+      return DEFAULT_WORK_INSIGHTS_MAX_TICKETS;
+    }
+
+    return Math.floor(max);
+  }
 
   // buildListPath(perPage, afterCursor?) helper
   function buildListPath(perPage: number, afterCursor?: string): string {
@@ -170,8 +197,20 @@ function buildAuthHeader(): string {
             },
           };
         }
+
+        const nextCursor = data.meta.after_cursor;
+        if (typeof nextCursor !== 'string' || nextCursor.trim() === '') {
+          return {
+            tickets: [],
+            meta: {
+              page,
+              per_page: perPage,
+              has_more: false,
+            },
+          };
+        }
       
-        cursor = data.meta.after_cursor;
+        cursor = nextCursor;
       }
 
       // fetch the actual requested page
@@ -193,6 +232,41 @@ function buildAuthHeader(): string {
 
   }
 
+
+
+  // FETCH ALL TICKET SNAPSHOTS — for work insights (subject, status, priority only)
+  export async function fetchAllTicketSnapshots(): Promise<TicketSnapshot[]> {
+    const maxTickets = getWorkInsightsMaxTickets();
+    const snapshots: TicketSnapshot[] = [];
+    let cursor: string | undefined;
+
+    while (snapshots.length < maxTickets) {
+      const remaining = maxTickets - snapshots.length;
+      const pageSize = Math.min(WORK_INSIGHTS_ZENDESK_PAGE_SIZE, remaining);
+      const data = await zendeskFetch(buildListPath(pageSize, cursor));
+      const tickets = (data.tickets as Record<string, unknown>[]) ?? [];
+
+      for (const raw of tickets) {
+        snapshots.push(mapZendeskTicketSnapshot(raw));
+        if (snapshots.length >= maxTickets) {
+          break;
+        }
+      }
+
+      if (!data.meta?.has_more || tickets.length === 0) {
+        break;
+      }
+
+      const nextCursor = data.meta.after_cursor;
+      if (typeof nextCursor !== 'string' || nextCursor.trim() === '') {
+        break;
+      }
+
+      cursor = nextCursor;
+    }
+
+    return snapshots;
+  }
 
 
   // FETCH ONE TICKET + ITS CONVERSATION SERVICE

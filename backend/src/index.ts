@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import ticketsRouter from './routes/tickets';
 import summaryRouter from './routes/summary';
+import workInsightsRouter from './routes/workInsights';
 
 dotenv.config();
 
@@ -18,6 +19,9 @@ app.use(
 );
 
 // 2. JSON parser — needed for POST /api/tickets/:id/summary later
+// app.use(express.json()) tells Express to read incoming JSON request bodies and put them into req.body.
+// It lets your server understand JSON sent by the client.
+// Parse JSON means convert JSON text into a usable JavaScript object.
 app.use(express.json());
 
 // Health check (Day 1 deliverable)
@@ -30,6 +34,9 @@ app.use('/api/tickets', ticketsRouter);
 
 // Summary route: POST /api/tickets/:id/summary
 app.use('/api/tickets/:id/summary', summaryRouter);
+
+// Work insights route: GET /api/work-insights
+app.use('/api/work-insights', workInsightsRouter);
 
 // 404 — friendly JSON for unknown URLs
 app.use((_req: Request, res: Response) => {
