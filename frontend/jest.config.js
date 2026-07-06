@@ -8,4 +8,12 @@ export default {
     moduleNameMapper: {
       '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     },
+    transform: {
+      '^.+\\.tsx?$': [
+        'ts-jest',
+        {
+          tsconfig: '<rootDir>/tsconfig.jest.json',
+        },
+      ],
+    },
   };

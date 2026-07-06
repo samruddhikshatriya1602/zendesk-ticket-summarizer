@@ -43,6 +43,7 @@ function sendAiGatewayError(err: unknown, res: Response): boolean {
 
   const statusMap: Record<string, number> = {
     AI_GATEWAY_UNAUTHORIZED: 502,
+    AI_GATEWAY_FORBIDDEN: 502,
     AI_GATEWAY_UNAVAILABLE: 503,
     AI_INVALID_RESPONSE: 502,
     AI_GATEWAY_ERROR: 502,
@@ -106,10 +107,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       summary,
     };
     res.status(200).json(body);
-    
+
   } catch (err) {
     if (sendZendeskError(err, res)) return;
     if (sendAiGatewayError(err, res)) return;
+    // next(err) — "I don't know this error — pass to global error middleware":
     next(err);
   }
 });
