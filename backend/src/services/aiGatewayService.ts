@@ -209,7 +209,7 @@ export function parseWorkInsights(
   };
 }
 
-const DEFAULT_TICKET_SUMMARY_MODEL = 'gpt-5.5';
+const DEFAULT_TICKET_SUMMARY_MODEL = 'us.anthropic.claude-sonnet-4-6';
 const DEFAULT_BEDROCK_BASE_URL = 'https://ai-gateway.zende.sk/bedrock';
 const DEFAULT_WORK_INSIGHTS_MODEL = 'us.anthropic.claude-sonnet-4-6';
 const BEDROCK_ANTHROPIC_VERSION = 'bedrock-2023-05-31';
@@ -440,7 +440,7 @@ async function readGatewayErrorDetail(response: Response): Promise<string> {
 }
 
 export async function generateSummary(prompt: string): Promise<TicketSummary> {
-  const parsed = await parseGatewayContent(prompt, getTicketSummaryModel());
+  const parsed = await parseBedrockContent(prompt, getTicketSummaryModel());
   return parseTicketSummary(parsed);
 }
 

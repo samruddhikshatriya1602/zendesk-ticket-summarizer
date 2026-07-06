@@ -65,32 +65,31 @@ describe('aiGatewayService', () => {
     global.fetch = mockFetch as unknown as typeof fetch;
 
     process.env.AI_GATEWAY_API_KEY = 'fake-test-key';
-    process.env.AI_GATEWAY_BASE_URL = 'https://ai-gateway.zende.sk/v1';
     process.env.AI_GATEWAY_BEDROCK_BASE_URL = 'https://ai-gateway.zende.sk/bedrock';
-    process.env.AI_GATEWAY_MODEL = 'gpt-5.5';
+    process.env.AI_GATEWAY_MODEL = 'us.anthropic.claude-sonnet-4-6';
     process.env.AI_GATEWAY_MODEL_WORK_INSIGHTS = 'us.anthropic.claude-sonnet-4-6';
   });
 
-  it('uses AI_GATEWAY_MODEL for ticket summaries', async () => {
+  it('uses AI_GATEWAY_MODEL for ticket summaries via Bedrock', async () => {
     const fakeSummary = makeSummary();
 
     mockFetch.mockResolvedValueOnce(
-      mockJsonResponse(mockGatewayBody(JSON.stringify(fakeSummary)))
+      mockJsonResponse(mockBedrockBody(JSON.stringify(fakeSummary)))
     );
 
     await generateSummary('summarize this ticket');
 
-    const requestBody = JSON.parse(
-      (mockFetch.mock.calls[0][1] as RequestInit).body as string
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toBe(
+      'https://ai-gateway.zende.sk/bedrock/model/us.anthropic.claude-sonnet-4-6/invoke'
     );
-    expect(requestBody.model).toBe('gpt-5.5');
   });
 
   it('returns TicketSummary when AI returns valid JSON', async () => {
     const fakeSummary = makeSummary({ mainIssue: 'Payment failed' });
 
     mockFetch.mockResolvedValueOnce(
-      mockJsonResponse(mockGatewayBody(JSON.stringify(fakeSummary)))
+      mockJsonResponse(mockBedrockBody(JSON.stringify(fakeSummary)))
     );
 
     const result = await generateSummary('summarize this ticket');
@@ -104,12 +103,25 @@ describe('aiGatewayService', () => {
     const fencedContent = '```json\n' + JSON.stringify(fakeSummary) + '\n```';
 
     mockFetch.mockResolvedValueOnce(
-      mockJsonResponse(mockGatewayBody(fencedContent))
+      mockJsonResponse(mockBedrockBody(fencedContent))
     );
 
     const result = await generateSummary('summarize this ticket');
 
     expect(result).toEqual(fakeSummary);
+  });
+
+  it('does not use OpenAI chat completions for ticket summaries', async () => {
+    const fakeSummary = makeSummary();
+
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse(mockBedrockBody(JSON.stringify(fakeSummary)))
+    );
+
+    await generateSummary('summarize this ticket');
+
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).not.toContain('/chat/completions');
   });
 
   it('throws AI_GATEWAY_UNAUTHORIZED on 401', async () => {
@@ -124,7 +136,7 @@ describe('aiGatewayService', () => {
 
   it('throws AI_INVALID_RESPONSE when content is not JSON', async () => {
     mockFetch.mockResolvedValueOnce(
-      mockJsonResponse(mockGatewayBody('hello prose'))
+      mockJsonResponse(mockBedrockBody('hello prose'))
     );
 
     await expect(generateSummary('summarize this ticket')).rejects.toMatchObject({
@@ -141,7 +153,7 @@ describe('aiGatewayService', () => {
     };
 
     mockFetch.mockResolvedValueOnce(
-      mockJsonResponse(mockGatewayBody(JSON.stringify(incomplete)))
+      mockJsonResponse(mockBedrockBody(JSON.stringify(incomplete)))
     );
 
     await expect(generateSummary('summarize this ticket')).rejects.toMatchObject({
