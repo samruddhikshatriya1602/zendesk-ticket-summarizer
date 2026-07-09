@@ -5,10 +5,18 @@ import { ErrorAlert } from '../shared/ErrorAlert';
 import { TicketHero } from '../detail/TicketHero';
 import { DescriptionCard } from '../detail/DescriptionCard';
 import { CommentThread } from '../detail/CommentThread';
+import { useTicketSummary } from '../../hooks/useTicketSummary';
+import { SummaryZone } from '../summary/SummaryZone';
 
 export function TicketDetailPanel() {
-  const { hasValidId, hasIdParam, ticket, comments, loading, error, retry } =
-    useTicketDetail();
+  const { hasValidId, hasIdParam, ticket, comments, loading, error, retry } = useTicketDetail();
+  const {
+    summary,
+    generatedAt,
+    summaryLoading,
+    summaryError,
+    generateSummary,
+  } = useTicketSummary(ticket?.id ?? null);
 
   if (!hasValidId) {
     if (hasIdParam) {
@@ -61,6 +69,16 @@ export function TicketDetailPanel() {
       <TicketHero ticket={ticket} />
       <DescriptionCard key={ticket.id} description={ticket.description} />
       <CommentThread key={ticket.id} comments={comments} />
+      <SummaryZone
+        key={ticket.id}
+        summary={summary}
+        generatedAt={generatedAt}
+        summaryLoading={summaryLoading}
+        summaryError={summaryError}
+        onGenerate={() => generateSummary()}
+        onRefresh={() => generateSummary(true)}
+        onRetry={() => generateSummary()}
+      />
     </div>
   );
 }

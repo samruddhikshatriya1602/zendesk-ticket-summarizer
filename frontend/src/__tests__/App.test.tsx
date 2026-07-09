@@ -2,15 +2,18 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@zendeskgarden/react-theming';
 import { ToastProvider } from '@zendeskgarden/react-notifications';
 import App from '../App';
-import { fetchTickets } from '../api/ticketApi';
+import { fetchTickets, fetchWorkInsights } from '../api/ticketApi';
 import type { Ticket } from '../types';
 
 jest.mock('../api/ticketApi', () => ({
   fetchTickets: jest.fn(),
+  fetchWorkInsights: jest.fn(),
   fetchTicketById: jest.fn(),
+  fetchSummary: jest.fn(),
 }));
 
 const mockedFetchTickets = jest.mocked(fetchTickets);
+const mockedFetchWorkInsights = jest.mocked(fetchWorkInsights);
 
 function makeTicket(id: number, subject: string): Ticket {
   return {
@@ -49,6 +52,20 @@ describe('App', () => {
         page: 1,
         per_page: 30,
         has_more: false,
+      },
+    });
+
+    mockedFetchWorkInsights.mockResolvedValue({
+      ticketCount: 2,
+      analyzedCount: 2,
+      generatedAt: '2026-06-29T12:00:00.000Z',
+      insights: {
+        headline: 'Summary of your work',
+        summary: 'you have 2 high priority tickets about login and billing.',
+        themes: [
+          { count: 1, priority: 'high', theme: 'login' },
+          { count: 1, priority: 'high', theme: 'billing' },
+        ],
       },
     });
   });
