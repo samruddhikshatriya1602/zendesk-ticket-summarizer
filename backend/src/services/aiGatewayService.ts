@@ -1,4 +1,5 @@
 import { TicketSummary, WorkInsightTheme, WorkInsights } from '../types';
+import { requireEnv } from '../utils/requireEnv';
 
 export class AiGatewayError extends Error {
   constructor(
@@ -8,14 +9,6 @@ export class AiGatewayError extends Error {
     super(message);
     this.name = 'AiGatewayError';
   }
-}
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value || value.trim() === '') {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value.trim();
 }
 
 function buildGatewayUrl(): string {

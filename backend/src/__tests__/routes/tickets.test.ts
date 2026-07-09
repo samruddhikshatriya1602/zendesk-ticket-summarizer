@@ -12,6 +12,7 @@ jest.mock('../../services/zendeskService', () => {
   return {
     ...actual,
     listTickets: jest.fn(),
+    searchTickets: jest.fn(),
     getTicketById: jest.fn(),
     getTicketComments: jest.fn(),
   };
@@ -23,6 +24,7 @@ import * as zendeskService from '../../services/zendeskService';
 import { ZendeskError } from '../../services/zendeskService';
 
 const mockedListTickets = jest.mocked(zendeskService.listTickets);
+const mockedSearchTickets = jest.mocked(zendeskService.searchTickets);
 const mockedGetTicketById = jest.mocked(zendeskService.getTicketById);
 const mockedGetTicketComments = jest.mocked(zendeskService.getTicketComments);
 
@@ -60,7 +62,51 @@ describe('GET /api/tickets', () => {
         expect(res.body).toHaveProperty('meta');
         expect(res.body.meta).toMatchObject({ page: 1, per_page: 30, has_more: false });
         expect(Array.isArray(res.body.tickets)).toBe(true);
-        expect(mockedListTickets).toHaveBeenCalledWith(1, 30);
+        expect(mockedListTickets).toHaveBeenCalledWith(1, 30, undefined);
+      });
+
+      it('returns 200 from searchTickets when q is provided', async () => {
+        mockedSearchTickets.mockResolvedValueOnce({
+          tickets: [
+            {
+              id: 99,
+              subject: 'Password reset',
+              description: '',
+              status: 'open',
+              priority: 'high',
+              created_at: '2026-06-20T10:15:30Z',
+              updated_at: '2026-06-20T10:15:30Z',
+            },
+          ],
+          meta: { page: 1, per_page: 30, has_more: false },
+        });
+
+        const res = await request(app)
+          .get('/api/tickets')
+          .query({ page: 1, per_page: 30, q: 'password', status: 'open' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.tickets).toHaveLength(1);
+        expect(mockedSearchTickets).toHaveBeenCalledWith('password', 1, 30, {
+          status: 'open',
+          priority: undefined,
+        });
+        expect(mockedListTickets).not.toHaveBeenCalled();
+      });
+
+      it('uses listTickets when q is empty', async () => {
+        mockedListTickets.mockResolvedValueOnce({
+          tickets: [],
+          meta: { page: 1, per_page: 30, has_more: false },
+        });
+
+        const res = await request(app)
+          .get('/api/tickets')
+          .query({ page: 1, per_page: 30, q: '   ' });
+
+        expect(res.status).toBe(200);
+        expect(mockedListTickets).toHaveBeenCalledWith(1, 30, undefined);
+        expect(mockedSearchTickets).not.toHaveBeenCalled();
       });
 
 

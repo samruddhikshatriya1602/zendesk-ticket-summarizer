@@ -1,10 +1,16 @@
-// Imports
 import {
   Ticket,
   TicketComment,
   TicketSnapshot,
   TicketsResponse,
 } from '../types';
+import {
+  ZendeskCommentsResponse,
+  ZendeskSearchResponse,
+  ZendeskTicketResponse,
+  ZendeskTicketsListResponse,
+} from '../types/zendeskApi';
+import { requireEnv } from '../utils/requireEnv';
 
 
 // Custom error class for Zendesk API errors
@@ -17,16 +23,6 @@ export class ZendeskError extends Error {
     this.name = 'ZendeskError';
   }
 }
-
-
-// requireEnv(name) helper
-function requireEnv(name: string): string {
-    const value = process.env[name];
-    if (!value || value.trim() === '') {
-      throw new Error(`Missing required environment variable: ${name}`);
-    }
-    return value.trim();
-  }
 
 
 // buildZendeskUrl(path) helper
@@ -126,10 +122,79 @@ function buildAuthHeader(): string {
     return `/tickets.json?${params.toString()}`;
   }
 
+  export interface TicketSearchFilters {
+    status?: string;
+    priority?: string;
+  }
+
+  function escapeZendeskTerm(term: string): string {
+    return term.replace(/[+:\-"\\*]/g, '\\$&');
+  }
+
+  function formatZendeskSearchTerm(term: string): string {
+    const trimmed = term.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (/^\d+$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/\s/.test(trimmed)) {
+      const phrase = trimmed.replace(/"/g, '\\"');
+      return `(subject:"${phrase}" OR description:"${phrase}")`;
+    }
+
+    const escaped = escapeZendeskTerm(trimmed);
+    // Zendesk rejects unqualified wildcards (e.g. "veri*"). Qualify by field.
+    return `subject:${escaped}*`;
+  }
+
+  export function buildTicketSearchQuery(
+    query: string,
+    filters: TicketSearchFilters = {}
+  ): string {
+    const parts = ['type:ticket'];
+    const formattedTerm = formatZendeskSearchTerm(query);
+
+    if (formattedTerm) {
+      parts.push(formattedTerm);
+    }
+
+    const status = filters.status?.trim().toLowerCase();
+    if (status && status !== 'all') {
+      parts.push(`status:${status}`);
+    }
+
+    const priority = filters.priority?.trim().toLowerCase();
+    if (priority && priority !== 'all') {
+      parts.push(`priority:${priority}`);
+    }
+
+    return parts.join(' ');
+  }
+
+  function buildTicketSearchPath(
+    query: string,
+    page: number,
+    perPage: number,
+    filters: TicketSearchFilters = {}
+  ): string {
+    const params = new URLSearchParams();
+    params.set('query', buildTicketSearchQuery(query, filters));
+    params.set('page', String(page));
+    params.set('per_page', String(perPage));
+    params.set('sort_by', 'updated_at');
+    params.set('sort_order', 'desc');
+
+    return `/search.json?${params.toString()}`;
+  }
+
 
 
   // zendeskFetch(path) helper
-  async function zendeskFetch(path: string): Promise<any> {
+  async function zendeskFetch<T>(path: string): Promise<T> {
     const url = buildZendeskUrl(path);
   
     let response: Response;
@@ -149,7 +214,7 @@ function buildAuthHeader(): string {
     }
   
     if (response.ok) {
-      return response.json();
+      return response.json() as Promise<T>;
     }
   
     if (response.status === 401) {
@@ -177,15 +242,50 @@ function buildAuthHeader(): string {
   }
 
 
+// SEARCH TICKETS SERVICE — Zendesk Search API across the whole account
+  export async function searchTickets(
+    query: string,
+    page: number,
+    perPage: number,
+    filters: TicketSearchFilters = {}
+  ): Promise<TicketsResponse> {
+    const data = await zendeskFetch<ZendeskSearchResponse>(
+      buildTicketSearchPath(query, page, perPage, filters)
+    );
+    const tickets: Ticket[] = [];
+
+    for (const raw of (data.results as Record<string, unknown>[]) ?? []) {
+      if (raw.result_type && raw.result_type !== 'ticket') {
+        continue;
+      }
+
+      tickets.push(mapZendeskTicket(raw));
+    }
+
+    return {
+      tickets,
+      meta: {
+        page,
+        per_page: perPage,
+        has_more: Boolean(data.next_page),
+      },
+    };
+  }
+
+
 // LIST TICKETS SERVICE
   export async function listTickets(
     page: number,
-    perPage: number
+    perPage: number,
+    afterCursor?: string
   ): Promise<TicketsResponse> {
-    let cursor: string | undefined;
+    let cursor = afterCursor;
 
-    for (let i = 1; i < page; i++) {
-        const data = await zendeskFetch(buildListPath(perPage, cursor));
+    if (!cursor) {
+      for (let i = 1; i < page; i++) {
+        const data = await zendeskFetch<ZendeskTicketsListResponse>(
+          buildListPath(perPage, cursor)
+        );
       
         if (!data.meta?.has_more) {
           return {
@@ -212,9 +312,11 @@ function buildAuthHeader(): string {
       
         cursor = nextCursor;
       }
+    }
 
-      // fetch the actual requested page
-      const data = await zendeskFetch(buildListPath(perPage, cursor));
+      const data = await zendeskFetch<ZendeskTicketsListResponse>(
+        buildListPath(perPage, cursor)
+      );
 
       // Normalize Tickets
       const tickets = (data.tickets as Record<string, unknown>[]).map(mapZendeskTicket);
@@ -243,7 +345,9 @@ function buildAuthHeader(): string {
     while (snapshots.length < maxTickets) {
       const remaining = maxTickets - snapshots.length;
       const pageSize = Math.min(WORK_INSIGHTS_ZENDESK_PAGE_SIZE, remaining);
-      const data = await zendeskFetch(buildListPath(pageSize, cursor));
+      const data = await zendeskFetch<ZendeskTicketsListResponse>(
+        buildListPath(pageSize, cursor)
+      );
       const tickets = (data.tickets as Record<string, unknown>[]) ?? [];
 
       for (const raw of tickets) {
@@ -271,14 +375,16 @@ function buildAuthHeader(): string {
 
   // FETCH ONE TICKET + ITS CONVERSATION SERVICE
   export async function getTicketById(id: number): Promise<Ticket> {
-    const data = await zendeskFetch(`/tickets/${id}.json`);
+    const data = await zendeskFetch<ZendeskTicketResponse>(`/tickets/${id}.json`);
     return mapZendeskTicket(data.ticket as Record<string, unknown>);
   }
 
 
   // FETCH TICKET COMMENTS SERVICE
   export async function getTicketComments(id: number): Promise<TicketComment[]> {
-    const data = await zendeskFetch(`/tickets/${id}/comments.json`);
+    const data = await zendeskFetch<ZendeskCommentsResponse>(
+      `/tickets/${id}/comments.json`
+    );
     const comments = data.comments as Record<string, unknown>[];
     return comments.map(mapZendeskComment);
   }

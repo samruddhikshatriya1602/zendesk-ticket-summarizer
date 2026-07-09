@@ -1,17 +1,10 @@
 import { TicketSnapshot } from '../types';
+import { truncate } from '../utils/truncate';
 
 const MAX_SUBJECT_CHARS = 120;
 
 function sanitizeField(value: string): string {
   return value.replace(/\s+/g, ' ').replace(/\|/g, '/').trim();
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) {
-    return text;
-  }
-
-  return `${text.slice(0, max).trimEnd()}...`;
 }
 
 function formatSnapshotLine(snapshot: TicketSnapshot): string {
@@ -48,7 +41,7 @@ ${ticketLines}
 Respond with ONLY valid JSON. No markdown. No code fences. Use exactly these keys:
 {
   "headline": "Summary of your work",
-  "summary": "you have <count> <priority> priority tickets about <theme> and <count> <priority> priority tickets about <theme>.",
+  "summary": "You have <count> <priority> priority tickets about <theme> and <count> <priority> priority tickets about <theme>.",
   "themes": [
     { "count": <number>, "priority": "<urgent|high|normal|low>", "theme": "<short issue label>" }
   ]

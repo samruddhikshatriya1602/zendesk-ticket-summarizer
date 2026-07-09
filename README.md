@@ -11,7 +11,7 @@ Built as a full-stack TypeScript exercise: Express backend (API proxy + AI orche
 ### Ticket workspace
 - **60/40 split layout** — ticket list (left) and ticket detail + AI summary (right)
 - **Paginated ticket list** from Zendesk (30 tickets per page)
-- **Search** by subject or ticket ID (client-side filter on current page)
+- **Search** by subject or ticket ID — instant filter on the current page (1 character); account-wide Zendesk Search API when you type 2+ characters (300ms debounce)
 - **Column filters** — Status, Priority, Updated sort (table header dropdowns)
 - **Keyboard shortcuts** — `/` search, `↑` `↓` navigate, `Enter` open ticket, `?` help, `Esc` back
 - **Resizable panels** — drag the center divider
@@ -234,7 +234,7 @@ All error responses use:
 
 | Method | Path | Query / body | Response |
 |--------|------|--------------|----------|
-| `GET` | `/api/tickets` | `page`, `per_page` (max 100) | `{ tickets, meta }` |
+| `GET` | `/api/tickets` | `page`, `per_page` (max 100), optional `q`, `status`, `priority` | `{ tickets, meta }` |
 | `GET` | `/api/tickets/:id` | — | `{ ticket, comments }` |
 
 ### Per-ticket AI summary
@@ -391,7 +391,7 @@ Press `?` in the ticket list to open the help dialog.
 | **No work insights refresh button** | Avoids stale-cache confusion; reload page for fresh analysis |
 | **Open/pending only for insights** | Agents care about active work, not solved tickets |
 | **Subject-only for insights** | Token-efficient; 300 tickets fit in one prompt |
-| **Client-side search/filter** | Fast UX on current page; does not affect queue insights |
+| **Hybrid search** | 1 char = instant client-side filter on current page; 2+ chars = debounced Zendesk Search API across account; work insights unaffected |
 
 ---
 

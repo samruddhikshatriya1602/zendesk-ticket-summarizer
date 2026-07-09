@@ -11,8 +11,10 @@
 
 import {
     listTickets,
+    searchTickets,
     getTicketById,
     fetchAllTicketSnapshots,
+    buildTicketSearchQuery,
     ZendeskError,
   } from '../services/zendeskService';
 
@@ -158,6 +160,74 @@ describe('zendeskService', () => {
       expect.stringContaining('/tickets/42.json'),
       expect.any(Object)
     );
+  });
+
+
+  describe('searchTickets', () => {
+    it('searches tickets and normalizes search results', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse({
+          results: [
+            {
+              result_type: 'ticket',
+              id: 10482,
+              subject: 'Password reset failed',
+              description: 'Customer cannot log in',
+              status: 'open',
+              priority: 'high',
+              created_at: '2026-06-20T10:15:30Z',
+              updated_at: '2026-06-24T14:22:01Z',
+            },
+          ],
+          next_page: 'https://z3n-test.zendesk.com/api/v2/search.json?page=2',
+        })
+      );
+
+      const result = await searchTickets('password', 1, 30, { status: 'open' });
+
+      expect(result.tickets).toHaveLength(1);
+      expect(result.tickets[0].subject).toBe('Password reset failed');
+      expect(result.meta).toMatchObject({
+        page: 1,
+        per_page: 30,
+        has_more: true,
+      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/search.json?'),
+        expect.any(Object)
+      );
+      const url = mockFetch.mock.calls[0][0] as string;
+      expect(url).toContain('query=type%3Aticket');
+      expect(url).toContain('password');
+      expect(url).toContain('status%3Aopen');
+    });
+
+    it('returns empty tickets when search has no matches', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse({
+          results: [],
+          next_page: null,
+        })
+      );
+
+      const result = await searchTickets('missing-topic', 1, 30);
+
+      expect(result.tickets).toEqual([]);
+      expect(result.meta.has_more).toBe(false);
+    });
+  });
+
+  describe('buildTicketSearchQuery', () => {
+    it('builds a full-account ticket search query with optional filters', () => {
+      expect(buildTicketSearchQuery('password reset')).toBe(
+        'type:ticket (subject:"password reset" OR description:"password reset")'
+      );
+      expect(buildTicketSearchQuery('10482')).toBe('type:ticket 10482');
+      expect(buildTicketSearchQuery('veri')).toBe('type:ticket subject:veri*');
+      expect(
+        buildTicketSearchQuery('billing', { status: 'open', priority: 'high' })
+      ).toBe('type:ticket subject:billing* status:open priority:high');
+    });
   });
 
 

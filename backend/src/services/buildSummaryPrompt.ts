@@ -1,13 +1,9 @@
 import { Ticket, TicketComment } from '../types';
+import { truncate } from '../utils/truncate';
 
 const MAX_DESCRIPTION_CHARS = 2000;
 const MAX_COMMENT_CHARS = 500;
 const MAX_COMMENTS = 10;
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max) + '...';
-}
 
 export function buildSummaryPrompt(ticket: Ticket, comments: TicketComment[]): string {
   const publicComments = comments.filter((c) => c.public);
