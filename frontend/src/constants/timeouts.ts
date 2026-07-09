@@ -1,0 +1,2 @@
+export const DEFAULT_TIMEOUT_MS = 60_000;
+export const WORK_INSIGHTS_TIMEOUT_MS = 120_000;

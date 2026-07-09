@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchWorkInsights } from '../api/ticketApi';
+import { WORK_INSIGHTS_TIMEOUT_MS } from '../constants/timeouts';
 import type { WorkInsightsResponse } from '../types';
-
-const WORK_INSIGHTS_TIMEOUT_MS = 120_000;
 
 export function useWorkInsights(enabled: boolean) {
   const [data, setData] = useState<WorkInsightsResponse | null>(null);

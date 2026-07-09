@@ -1,3 +1,7 @@
+// TicketRow.tsx — one clickable row in the ticket list table.
+// Renders ID, subject, status/priority tags, and relative updated date.
+// Click or Enter navigates to /tickets/:id; ArrowUp/Down move keyboard focus (via TicketTable).
+
 import { forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Ticket } from '../../types';
@@ -10,11 +14,12 @@ import {
 
 interface TicketRowProps {
   ticket: Ticket;
-  isSelected: boolean;
-  isActive: boolean;
+  isSelected: boolean; // true when URL matches this ticket (e.g. /tickets/1001)
+  isActive: boolean; // true when this row has keyboard focus
   onMoveFocus: (direction: 'up' | 'down') => void;
 }
 
+// forwardRef lets TicketTable call .focus() on the <tr> for keyboard navigation.
 export const TicketRow = forwardRef<HTMLTableRowElement, TicketRowProps>(
   function TicketRow(
     { ticket, isSelected, isActive, onMoveFocus },

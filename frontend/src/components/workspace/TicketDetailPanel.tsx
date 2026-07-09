@@ -18,24 +18,24 @@ export function TicketDetailPanel() {
     generateSummary,
   } = useTicketSummary(ticket?.id ?? null);
 
-    if (!hasValidId) {
-      if (hasIdParam) {
-        return (
-          <div className="ticket-panel-body ticket-detail-error">
-            <ErrorAlert
-              title="Couldn't load ticket"
-              message="Ticket id must be a positive integer."
-            />
-          </div>
-        );
-      }
-  
+  if (!hasValidId) {
+    if (hasIdParam) {
       return (
-        <div className="ticket-panel-body">
-          <EmptyDetailState />
+        <div className="ticket-panel-body ticket-detail-error">
+          <ErrorAlert
+            title="Couldn't load ticket"
+            message="Ticket id must be a positive integer."
+          />
         </div>
       );
     }
+
+    return (
+      <div className="ticket-panel-body">
+        <EmptyDetailState />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

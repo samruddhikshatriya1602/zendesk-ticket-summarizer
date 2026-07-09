@@ -1,3 +1,6 @@
+// AppShell.tsx — outer layout frame for every page (mounted by App.tsx parent route).
+// Keeps the top bar fixed; child routes (e.g. TicketsWorkspace) render inside <Outlet />.
+
 import { Outlet } from 'react-router-dom';
 import { SkipLink } from '../shared/SkipLink';
 import {
@@ -10,8 +13,10 @@ import {
 export function AppShell() {
   return (
     <div className="app-shell">
+      {/* Keyboard users: Tab to reveal, Enter jumps past header to main content. */}
       <SkipLink />
 
+      {/* Top bar — branding (left) + workspace label (right). Stays visible on all routes. */}
       <header className="app-topbar" role="banner">
         <div className="app-topbar-inner">
           <div className="app-brand">
@@ -35,6 +40,7 @@ export function AppShell() {
         </div>
       </header>
 
+      {/* Main content slot — React Router injects the matched child route here. */}
       <main id="main-content" className="app-main">
         <Outlet />
       </main>

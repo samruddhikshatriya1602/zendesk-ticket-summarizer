@@ -1,3 +1,6 @@
+// useSplitPanel.ts — draggable 60/40 split between list (left) and detail (right).
+// Used by TicketsWorkspace; returns widths, refs, and mousedown handler for the resizer.
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface UseSplitPanelOptions {
@@ -16,6 +19,7 @@ export function useSplitPanel({
   const workspaceRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
+  // Convert mouse X position into left panel %, clamped between min and max.
   const updatePercent = useCallback(
     (clientX: number) => {
       const workspace = workspaceRef.current;
@@ -30,6 +34,7 @@ export function useSplitPanel({
     [maxPercent, minPercent]
   );
 
+  // Attached to split-resizer onMouseDown — starts drag mode.
   const onResizerMouseDown = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
@@ -41,6 +46,7 @@ export function useSplitPanel({
     []
   );
 
+  // Listen on document so drag still works if cursor leaves the thin resizer bar.
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
       if (!isDraggingRef.current) {

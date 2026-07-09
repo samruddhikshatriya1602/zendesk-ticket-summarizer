@@ -52,8 +52,6 @@ export function TicketTable({
     [tickets.length]
   );
 
-  const ticketIdsKey = tickets.map((ticket) => ticket.id).join(',');
-
   useEffect(() => {
     if (tickets.length === 0) {
       return;
@@ -65,7 +63,7 @@ export function TicketTable({
         : -1;
 
     focusRow(selectedIndex >= 0 ? selectedIndex : 0);
-  }, [focusRow, listPage, selectedId, ticketIdsKey]);
+  }, [focusRow, listPage, selectedId, tickets]);
 
   useEffect(() => {
     if (activeIndex >= tickets.length && tickets.length > 0) {

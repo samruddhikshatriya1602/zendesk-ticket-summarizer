@@ -1,11 +1,12 @@
+// TicketListPanel.tsx — left panel: search, work insights, table/skeleton, pagination.
+// Receives ticketsState from TicketsWorkspace (useTickets); does not fetch tickets itself.
+
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { SearchBar } from '../list/SearchBar';
 import {
   filterTickets,
   sortTicketsByUpdated,
-  type PriorityFilter,
-  type StatusFilter,
   type UpdatedSort,
 } from '../../utils/filterTickets';
 import { TicketTable } from '../list/TicketTable';
@@ -16,6 +17,7 @@ import { KeyboardHelpModal } from '../shared/KeyboardHelpModal';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useWorkInsights } from '../../hooks/useWorkInsights';
 import type { useTickets } from '../../hooks/useTickets';
+import { MIN_SERVER_SEARCH_LENGTH } from '../../hooks/useTickets';
 import { WorkInsightsPanel } from '../list/WorkInsightsPanel';
 
 type TicketsState = ReturnType<typeof useTickets>;
@@ -25,10 +27,24 @@ interface TicketListPanelProps {
 }
 
 export function TicketListPanel({ ticketsState }: TicketListPanelProps) {
-  const { tickets, page, hasMore, loading, error, goNext, goPrev } = ticketsState;
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
+  const {
+    tickets,
+    page,
+    hasMore,
+    loading,
+    error,
+    searchQuery,
+    setSearchQuery,
+    statusFilter,
+    setStatusFilter,
+    priorityFilter,
+    setPriorityFilter,
+    isSearchMode,
+    isLocalSearchOnly,
+    clearFilters,
+    goNext,
+    goPrev,
+  } = ticketsState;
   const [updatedSort, setUpdatedSort] = useState<UpdatedSort>('default');
   const [helpOpen, setHelpOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -36,19 +52,26 @@ export function TicketListPanel({ ticketsState }: TicketListPanelProps) {
   const { id } = useParams();
 
   const filteredTickets = useMemo(() => {
-    const filtered = filterTickets(tickets, {
-      searchQuery,
-      status: statusFilter,
-      priority: priorityFilter,
-    });
+    const ticketsToShow = isSearchMode
+      ? tickets
+      : filterTickets(tickets, {
+          searchQuery,
+          status: statusFilter,
+          priority: priorityFilter,
+        });
 
-    return sortTicketsByUpdated(filtered, updatedSort);
-  }, [tickets, searchQuery, statusFilter, priorityFilter, updatedSort]);
+    return sortTicketsByUpdated(ticketsToShow, updatedSort);
+  }, [
+    tickets,
+    searchQuery,
+    statusFilter,
+    priorityFilter,
+    updatedSort,
+    isSearchMode,
+  ]);
 
   const handleClearFilters = () => {
-    setSearchQuery('');
-    setStatusFilter('all');
-    setPriorityFilter('all');
+    clearFilters();
     setUpdatedSort('default');
   };
 
@@ -58,6 +81,7 @@ export function TicketListPanel({ ticketsState }: TicketListPanelProps) {
     priorityFilter !== 'all' ||
     updatedSort !== 'default';
 
+  // Fetch queue insights only after the ticket list has loaded successfully.
   const listReady = !loading && !error;
   const workInsights = useWorkInsights(listReady);
 
@@ -70,6 +94,7 @@ export function TicketListPanel({ ticketsState }: TicketListPanelProps) {
     enabled: listReady,
   });
 
+  // ListErrorBanner (in TicketsWorkspace) shows the error; this is the panel fallback.
   if (error) {
     return (
       <div className="ticket-panel-body">
@@ -94,6 +119,12 @@ export function TicketListPanel({ ticketsState }: TicketListPanelProps) {
             value={searchQuery}
             onChange={setSearchQuery}
           />
+          {isLocalSearchOnly && (
+            <p className="list-search-hint" role="status">
+              Searching this page only. Type {MIN_SERVER_SEARCH_LENGTH} or more
+              characters to search all tickets.
+            </p>
+          )}
         </div>
         <WorkInsightsPanel
           data={workInsights.data}
@@ -109,22 +140,19 @@ export function TicketListPanel({ ticketsState }: TicketListPanelProps) {
       >
         {loading ? (
           <LoadingSkeleton lines={10} lineHeight="40px" />
-        ) : tickets.length > 0 ? (
-          <>
-            <TicketTable
-              tickets={filteredTickets}
-              listPage={page}
-              statusFilter={statusFilter}
-              priorityFilter={priorityFilter}
-              updatedSort={updatedSort}
-              onStatusFilterChange={setStatusFilter}
-              onPriorityFilterChange={setPriorityFilter}
-              onUpdatedSortChange={setUpdatedSort}
-            />
-            {filteredTickets.length === 0 && hasActiveFilters && (
-              <EmptySearchState onClear={handleClearFilters} />
-            )}
-          </>
+        ) : filteredTickets.length > 0 ? (
+          <TicketTable
+            tickets={filteredTickets}
+            listPage={page}
+            statusFilter={statusFilter}
+            priorityFilter={priorityFilter}
+            updatedSort={updatedSort}
+            onStatusFilterChange={setStatusFilter}
+            onPriorityFilterChange={setPriorityFilter}
+            onUpdatedSortChange={setUpdatedSort}
+          />
+        ) : hasActiveFilters || isSearchMode ? (
+          <EmptySearchState onClear={handleClearFilters} />
         ) : (
           <p>No tickets on this page.</p>
         )}
