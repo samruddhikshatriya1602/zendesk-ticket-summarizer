@@ -8,6 +8,7 @@ Object.assign(global, {
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
+  configurable: true,
   value: jest.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
@@ -16,6 +17,6 @@ Object.defineProperty(window, 'matchMedia', {
     removeListener: jest.fn(),
     addEventListener: jest.fn(),
     removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
+    dispatchEvent: jest.fn(() => true),
   })),
 });
